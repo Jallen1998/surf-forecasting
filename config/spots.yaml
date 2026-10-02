@@ -1,0 +1,131 @@
+# spots.yaml
+# Coordinates are converted from Jack's DMS readings — high confidence.
+# facing_deg / offshore_arc are MY estimates from his written descriptions
+# of each break, NOT measured — these are the part still needing his
+# review/correction before the scoring logic is trusted. See per-spot
+# notes below.
+
+spots:
+
+  # --- West Jutland (Tier A — groundswell exposed) -------------------
+  hanstholm_beach:
+    lat: 57.1248
+    lon: 8.6144
+    tier: A_groundswell
+    facing_deg: 310          # NW-ish, open coast, partially sheltered by the harbour wall
+    offshore_arc: [110, 190] # roughly SE-S quadrant offshore
+    note: "Punchy beach break, partially protected by Hanstholm havn."
+
+  hanstholm_point:
+    lat: 57.1243
+    lon: 8.6262
+    tier: A_groundswell
+    facing_deg: 0             # faces more north — catches N-leaning swell directly
+    offshore_arc: [150, 230]  # S through SE-SW is offshore here, per Jack's note
+    note: >
+      Longboard point wave, east of the beach break past the next break
+      wall. Needs a swell with more north in it, wind from south or no
+      further north than due east. Best option when open beaches are
+      blown out by big storm swells — opposite wind signature to
+      hanstholm_beach, so do NOT merge these into one spot profile.
+
+  klitmoller:
+    lat: 57.0440
+    lon: 8.4800
+    tier: A_groundswell
+    facing_deg: 280
+    offshore_arc: [80, 160]
+    note: "Coordinates from webcam/surf-forecast.com, not yet confirmed by Jack."
+
+  vorupoer:
+    lat: 57.0200
+    lon: 8.4500
+    tier: A_groundswell
+    facing_deg: 275
+    offshore_arc: [75, 155]
+    note: "Coordinates from surf-forecast.com, not yet confirmed by Jack."
+
+  # --- North Zealand (Tier B — mixed) ---------------------------------
+  gilleleje:
+    lat: 56.1300
+    lon: 12.3100
+    tier: B_mixed
+    facing_deg: 0
+    offshore_arc: [150, 210]
+    note: "Coordinates from surf-forecast.com, not yet confirmed by Jack."
+
+  nakkehoved: null    # pending — coordinates not yet supplied
+  hundested:  null    # pending — coordinates not yet supplied
+
+  # --- Mølle peninsula (Tier B — mixed) --------------------------------
+  molle_havn:
+    lat: 56.2857
+    lon: 12.4902
+    tier: B_mixed
+    facing_deg: 30            # estimate — right-hand rock point, across the harbour
+    offshore_arc: [180, 250]
+    note: "Right-hand rock point break at Mølle havn. Bearing is a rough estimate — please correct."
+
+  skaret:
+    lat: 56.2723
+    lon: 12.5934
+    tier: B_mixed
+    facing_deg: 0              # confirmed north-facing per Jack
+    offshore_arc: [150, 210]
+    note: "Rock-based left point, north-facing (confirmed), other side of the peninsula from Mølle havn."
+
+  # --- Varberg (Tier B — mixed) ----------------------------------------
+  varberg_1:
+    lat: 57.0831
+    lon: 12.2562
+    tier: B_mixed
+    facing_deg: 275
+    offshore_arc: [80, 160]
+    note: "Beach break. Jack notes he hasn't fully mapped all Varberg spots yet — treat as provisional."
+
+  varberg_2:
+    lat: 57.0621
+    lon: 12.2737
+    tier: B_mixed
+    facing_deg: 275
+    offshore_arc: [80, 160]
+    note: "Second Varberg beach break, same provisional caveat as varberg_1."
+
+  # --- Åsa (Tier B — mixed) ---------------------------------------------
+  asa_north:
+    lat: 57.3379
+    lon: 12.0638
+    tier: B_mixed
+    facing_deg: 350            # estimate — left point, north side of peninsula
+    offshore_arc: [140, 220]
+    note: "Left-hand point break, north side of the Åsa peninsula. Bearing estimated, please correct."
+
+  asa_south:
+    lat: 57.3367
+    lon: 12.0811
+    tier: B_mixed
+    facing_deg: 170            # estimate — right point, south side, opposite exposure to asa_north
+    offshore_arc: [320, 40]    # wraps through north — handle arc wraparound in scoring code
+    note: "Right-hand point break, south side of the Åsa peninsula. Bearing estimated, please correct."
+
+  # --- East Skåne / South Sweden (Tier C — windswell) --------------------
+  piren:
+    lat: 55.6149
+    lon: 14.2945
+    tier: C_windswell
+    facing_deg: 70
+    offshore_arc: [210, 290]
+    note: "Breaks mostly as a right, per Jack."
+
+  vik_kivik: null   # pending — coordinates not yet supplied
+  ahus:      null   # pending — coordinates not yet supplied
+
+  smygehuk:
+    lat: 55.3370
+    lon: 13.3617
+    tier: C_windswell
+    facing_deg: 180             # estimate — south-facing, southernmost point of Sweden
+    offshore_arc: [340, 60]     # wraps through north — handle arc wraparound in scoring code
+    note: "Breaks along the pier as a right, per Jack. Bearing estimated, please correct."
+
+  ystad: null   # pending — coordinates not yet supplied

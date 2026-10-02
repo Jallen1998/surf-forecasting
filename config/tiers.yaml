@@ -1,0 +1,48 @@
+# tiers.yaml
+# Scoring bands per tier. period_sec / height_m cutoffs mark the boundary
+# BELOW which a block is "poor", with "marginal"/"good" as the next
+# boundaries and anything above "good" classed "epic".
+#
+# onshore_strong_ms / fetch_min_speed_ms are engineering estimates, not
+# sourced from any climatology — lowest-confidence numbers in this file,
+# expect to adjust these first from the recalibration log.
+
+tiers:
+  A_groundswell:              # Klitmøller, Vorupør, Hanstholm (both breaks)
+    period_sec: { poor: 5, marginal: 8, good: 10 }
+    height_m:   { poor: 0.8, marginal: 1.3, good: 2.0 }
+    onshore_strong_ms: 9
+    fetch_min_speed_ms: 6
+    windsea_fetch_build_hrs: 6
+
+  B_mixed:                    # Gilleleje, Mølle (both), Varberg, Åsa (both)
+    period_sec: { poor: 4, marginal: 6, good: 8 }
+    height_m:   { poor: 0.5, marginal: 0.9, good: 1.5 }
+    onshore_strong_ms: 8
+    fetch_min_speed_ms: 6
+    windsea_fetch_build_hrs: 8
+
+  C_windswell:                # Piren, Smygehuk
+    period_sec: { poor: 3, marginal: 4, good: 6 }
+    height_m:   { poor: 0.4, marginal: 0.6, good: 1.0 }
+    onshore_strong_ms: 7
+    fetch_min_speed_ms: 5
+    windsea_fetch_build_hrs: 10
+
+wind_modifier:
+  groundswell_block:          # period >= tier's "good" cutoff
+    offshore: 1.2
+    cross: 0.8
+    onshore_light: 0.5
+    onshore_strong: 0.15
+  windsea_block:               # period below tier's "good" cutoff — the normal case
+    offshore: 1.1
+    cross: 1.0
+    onshore_light: 0.9
+    onshore_strong: 0.6
+
+category_cutoffs:              # composite score (swell_quality x wind_modifier) -> category
+  flat: 0
+  marginal: 3
+  good: 6
+  epic: 8.5

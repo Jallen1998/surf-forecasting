@@ -1,0 +1,13 @@
+# R / Positron
+.Rhistory
+.RData
+.Rproj.user/
+.positron/
+
+# Secrets: Telegram bot token + chat id live here locally, GitHub Secrets in Actions
+.Renviron
+.env
+
+# Local scratch / raw API dumps
+scratch/
+*.rds

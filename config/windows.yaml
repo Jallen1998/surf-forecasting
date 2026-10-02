@@ -1,0 +1,14 @@
+# windows.yaml
+# How hourly scored blocks are turned into "windows". The Good cutoff
+# itself is NOT set here: it's read from tiers.yaml category_cutoffs$good
+# so there is one source of truth for what Good means.
+#
+# All numbers below are first guesses. Tune them from the
+# recalibration log, not by eye on one forecast.
+
+detection:
+  light: civil            # civil = civil dawn->dusk; sunrise = sunrise->sunset
+  daylight_pad_min: 30    # each hourly block stands in for +/-30 min
+  hold_margin: 1.0        # once open, a window stays open while score >= good - hold_margin
+  max_gap_hours: 1        # bridge dips below the hold level lasting at most this many hours
+  min_duration_hours: 2   # shorter windows are dropped (not worth a drive)
