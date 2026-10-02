@@ -43,9 +43,37 @@ swell_quality <- function(height_m, period_sec, tier_cfg) {
     return(NA_real_)
   }
 
-  PERIOD_WEIGHT *
+  sq <- PERIOD_WEIGHT *
     .CATEGORY_SCORE[[period_cat]] +
     HEIGHT_WEIGHT * .CATEGORY_SCORE[[height_cat]]
+
+  # Below the "poor" height cutoff, fade swell quality linearly to zero.
+  # Without this, height could never pull the score below its "poor"
+  # floor of 2, and period (65% weight) alone carried tiny long-period
+  # swell to Good: 0.1 m @ 10 s scored the same as 0.6 m @ 10 s.
+  if (height_m < tier_cfg$height_m$poor) {
+    sq <- sq * max(height_m, 0) / tier_cfg$height_m$poor
+  }
+  sq
+}
+
+# ---- Swell direction exposure ------------------------------------------------
+# How squarely the waves arrive at the spot. angle = difference between
+# the direction waves come FROM and facing_deg. Full exposure up to
+# full_deg, fading linearly to zero at zero_deg (waves travelling past or
+# away from the beach). zero_deg > 90 allows some refraction/wrap.
+# Caveat: at a 25 km GFS grid point, direction is the open-water value,
+# so this catches "sea moving away from the beach" but cannot model wrap
+# around a specific headland.
+direction_exposure <- function(wave_dir, facing_deg, dir_cfg) {
+  if (is.na(wave_dir) || is.na(facing_deg)) {
+    return(NA_real_)
+  }
+  angle <- abs(((wave_dir - facing_deg + 180) %% 360) - 180)
+  if (angle <= dir_cfg$full_deg) {
+    return(1)
+  }
+  max(0, 1 - (angle - dir_cfg$full_deg) / (dir_cfg$zero_deg - dir_cfg$full_deg))
 }
 
 # ---- Wind direction classification, with arc wraparound handled -----------
@@ -76,8 +104,13 @@ wind_category <- function(
     return(NA_character_)
   }
 
+  # Strong offshore makes waves hard to catch and flattens windswell;
+  # strong cross-shore chops it up. Both used to get the full modifier
+  # regardless of speed. Same speed threshold as onshore_strong.
+  strong <- wind_speed_ms >= onshore_strong_ms
+
   if (.in_arc(wind_dir, arc_min, arc_max)) {
-    return("offshore")
+    return(if (strong) "offshore_strong" else "offshore")
   }
 
   onshore <- .opposite_arc(arc_min, arc_max)
@@ -90,7 +123,7 @@ wind_category <- function(
       }
     )
   }
-  "cross"
+  if (strong) "cross_strong" else "cross"
 }
 
 # ---- Fetch gate for windsea blocks -----------------------------------------
@@ -144,14 +177,41 @@ score_block <- function(row, history, idx, tiers_cfg) {
   }
 
   sq <- swell_quality(row$wave_height, row$wave_period, tier_cfg)
-  # Use the dedicated swell component, not the blended wave_period, to
-  # decide groundswell vs windsea — a real swell under wind-chop should
-  # still get groundswell wind tolerance, even if the blended figure
-  # (which mixes in the chop) reads shorter than the true swell alone.
-  is_groundswell <- !is.na(row$swell_wave_period) &&
-    row$swell_wave_period >= tier_cfg$period_sec$good
+
+  # ---- Groundswell vs windsea ----
+  # A block is groundswell if EITHER
+  #  (a) the dedicated swell component is long-period AND carries a real
+  #      share of the sea (>= min_swell_share of total height and >=
+  #      min_swell_height_m). Using the swell component rather than the
+  #      blended period lets a real swell under chop still count; the size
+  #      checks stop a trace partition (0.06 m @ 8.6 s under 1.22 m of
+  #      5 s chop, Molle 2026-10-05) from flipping the block; or
+  #  (b) the blended period itself is long. Needed because GFS Wave on
+  #      Open-Meteo often reports the swell partition as 0 and puts all
+  #      energy in windsea, so (a) can never fire beyond the EWAM horizon.
+  gs_cfg <- tiers_cfg$groundswell_classification
+  if (is.null(gs_cfg)) stop("tiers.yaml: groundswell_classification block missing")
+  good_period <- tier_cfg$period_sec$good
+
+  swell_dominant <- !is.na(row$swell_wave_period) &&
+    !is.na(row$swell_wave_height) &&
+    !is.na(row$wave_height) &&
+    row$swell_wave_period >= good_period &&
+    row$swell_wave_height >= gs_cfg$min_swell_height_m &&
+    row$swell_wave_height >= gs_cfg$min_swell_share * row$wave_height
+  long_total <- !is.na(row$wave_period) && row$wave_period >= good_period
+
+  is_groundswell <- swell_dominant || long_total
   block_type <- if (is_groundswell) "groundswell_block" else "windsea_block"
 
+  # ---- Direction exposure ----
+  # Swell direction when the swell component is what makes it groundswell,
+  # otherwise the overall wave direction.
+  wave_dir <- if (swell_dominant) row$swell_wave_direction else row$wave_direction
+  if (is.null(row$facing_deg)) stop("score_block: facing_deg missing for ", row$spot)
+  exposure <- direction_exposure(wave_dir, row$facing_deg, tiers_cfg$direction_exposure)
+
+  # ---- Wind ----
   wcat <- wind_category(
     row$wind_direction_10m,
     row$wind_speed_10m,
@@ -160,17 +220,23 @@ score_block <- function(row, history, idx, tiers_cfg) {
     tier_cfg$onshore_strong_ms
   )
 
-  wmod <- tiers_cfg$wind_modifier[[block_type]][[wcat]]
+  wmod <- if (is.na(wcat)) NULL else tiers_cfg$wind_modifier[[block_type]][[wcat]]
   if (is.null(wmod)) {
     wmod <- NA_real_
   }
 
-  score <- sq * wmod
+  score <- sq * exposure * wmod
 
   # Fetch gate only applies to windsea blocks — groundswell arrives
-  # regardless of local wind duration.
+  # regardless of local wind duration. It is also skipped when the wind
+  # is offshore: the sea is then residual (a blow that has swung
+  # offshore, the classic Kattegat clean-up session), and the wave model
+  # has already accounted for how much fetch built it. Gating on local
+  # onshore wind there would double-count and halve the best sessions.
+  # Switchable in tiers.yaml (fetch_gate$enabled) — see note there.
   fetch_ok <- TRUE
-  if (!is_groundswell) {
+  gate_on <- !isFALSE(tiers_cfg$fetch_gate$enabled)
+  if (gate_on && !is_groundswell && !(wcat %in% c("offshore", "offshore_strong"))) {
     fetch_ok <- fetch_built(
       history,
       idx,
@@ -199,12 +265,11 @@ score_block <- function(row, history, idx, tiers_cfg) {
   # plainly — this is the piece that was the whole point of the project.
   limiting_factor <- dplyr::case_when(
     is.na(score) ~ "missing_data",
-    wcat %in% c("onshore_strong", "onshore_light") & wmod < 1 ~ paste0(
-      "wind_",
-      wcat
-    ),
-    !is_groundswell && !fetch_ok ~ "fetch_not_built",
+    exposure < 0.5 ~ "swell_direction",
+    !is.na(wmod) & wmod < 1 ~ paste0("wind_", wcat),
+    !is_groundswell & !fetch_ok ~ "fetch_not_built",
     sq < 5 ~ "weak_swell",
+    exposure < 1 ~ "swell_direction",
     TRUE ~ "none"
   )
 
@@ -214,6 +279,7 @@ score_block <- function(row, history, idx, tiers_cfg) {
     tier = row$tier,
     block_type = block_type,
     swell_quality = round(sq, 1),
+    exposure = round(exposure, 2),
     wind_category = wcat,
     wind_modifier = wmod,
     score = round(score, 1),
@@ -234,8 +300,9 @@ score_spot <- function(spot_history, tiers_cfg) {
 # source("R/fetch_forecast.R") first, then:
 #   forecast <- fetch_all_spots()
 #   tiers_cfg <- load_tiers()
-#   scored <- forecast |> dplyr::group_by(spot) |>
-#     dplyr::group_modify(~ score_spot(.x, tiers_cfg))
+#   scored <- forecast |> split(~spot) |>
+#     purrr::map(~ score_spot(.x, tiers_cfg)) |> purrr::list_rbind()
+#   (not group_modify: it strips `spot` from .x, so row$spot is NULL)
 #   View(scored)
 # Check limiting_factor and category by eye against what you'd expect
 # for a couple of known-good or known-flat days before trusting this.

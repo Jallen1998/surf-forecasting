@@ -26,7 +26,12 @@ WEATHER_URL <- "https://api.open-meteo.com/v1/forecast"
 # at a comparable near-coastal European point where dwd_ewam/best_match
 # returned nulls.
 MARINE_MODEL_PRIORITY <- c("dwd_ewam", "ncep_gfswave025")
-WEATHER_MODEL <- "dwd_icon_eu" # matches EWAM's own atmospheric forcing
+# Wind mirrors the marine blend: ICON-EU (EWAM's own forcing, ~7km) for
+# as long as it runs (~5 days), then GFS, which is what forces GFS Wave,
+# so beyond day 5 the wave and wind numbers come from the same model.
+# Without the fallback every block after ~day 5 had wave data but NA
+# wind and scored NA, which silently capped the horizon at 5 days.
+WIND_MODEL_PRIORITY <- c("dwd_icon_eu", "gfs_seamless")
 
 # ---- Config ------------------------------------------------------------
 load_spots <- function(path = "config/spots.yaml") {
@@ -198,33 +203,68 @@ fetch_marine <- function(lat, lon, days_ahead = 10) {
   bind_rows(primary, fallback_tail) |> arrange(datetime)
 }
 
-# ---- Wind pull -------------------------------------------------------------
-fetch_wind <- function(lat, lon, days_ahead = 10) {
+# ---- Wind pull, with fallback across models --------------------------------
+.pull_one_wind_model <- function(lat, lon, model, days_ahead) {
   hourly_vars <- c("wind_speed_10m", "wind_direction_10m", "wind_gusts_10m")
-  extra <- list(wind_speed_unit = "ms")
-
   parsed <- .call_openmeteo(
     WEATHER_URL,
     lat,
     lon,
     hourly_vars,
-    WEATHER_MODEL,
-    extra_params = extra,
+    model,
+    extra_params = list(wind_speed_unit = "ms"),
     days_ahead = days_ahead
   )
   if (is.null(parsed) || !.has_real_data(parsed, "wind_speed_10m")) {
-    stop(sprintf(
-      "Wind model '%s' returned no data at %.3f,%.3f.",
-      WEATHER_MODEL,
-      lat,
-      lon
-    ))
+    return(NULL)
   }
   as_tibble(parsed$hourly) |>
     mutate(
-      datetime = as.POSIXct(time, format = "%Y-%m-%dT%H:%M", tz = "UTC")
+      datetime = as.POSIXct(time, format = "%Y-%m-%dT%H:%M", tz = "UTC"),
+      wind_model = model
     ) |>
-    select(-time)
+    select(-time) |>
+    # A model past its horizon returns rows of NA rather than no rows.
+    filter(!is.na(wind_speed_10m), !is.na(wind_direction_10m))
+}
+
+fetch_wind <- function(lat, lon, days_ahead = 10) {
+  primary <- .pull_one_wind_model(lat, lon, WIND_MODEL_PRIORITY[1], days_ahead)
+
+  if (is.null(primary)) {
+    message(sprintf(
+      "Primary wind model '%s' returned no data at %.3f,%.3f — using fallback only.",
+      WIND_MODEL_PRIORITY[1],
+      lat,
+      lon
+    ))
+    primary <- tibble()
+  } else if (nrow(primary) >= days_ahead * 24) {
+    return(primary)
+  }
+
+  fallback <- .pull_one_wind_model(lat, lon, WIND_MODEL_PRIORITY[2], days_ahead)
+  if (is.null(fallback)) {
+    if (nrow(primary) == 0) {
+      stop(sprintf("No wind model returned data for %.3f,%.3f.", lat, lon))
+    }
+    warning(sprintf(
+      "Fallback wind model '%s' failed at %.3f,%.3f — horizon limited to %.1f days.",
+      WIND_MODEL_PRIORITY[2],
+      lat,
+      lon,
+      nrow(primary) / 24
+    ))
+    return(primary)
+  }
+
+  last_primary_hour <- if (nrow(primary) > 0) {
+    max(primary$datetime)
+  } else {
+    as.POSIXct(-Inf, tz = "UTC")
+  }
+  bind_rows(primary, fallback |> filter(datetime > last_primary_hour)) |>
+    arrange(datetime)
 }
 
 # ---- Combine for one spot / all spots --------------------------------------
@@ -244,8 +284,11 @@ fetch_spot_forecast <- function(spot_row, days_ahead = 10) {
     relocate(spot, tier, datetime)
 }
 
-fetch_all_spots <- function(spots_path = "config/spots.yaml", days_ahead = 10) {
-  spots <- load_spots(spots_path)
+fetch_all_spots <- function(
+  spots_path = "config/spots.yaml",
+  days_ahead = 10,
+  spots = load_spots(spots_path) # pass an already-loaded table to skip re-reading
+) {
   spots |>
     split(seq_len(nrow(spots))) |>
     map(fetch_spot_forecast, days_ahead = days_ahead) |>
@@ -260,6 +303,6 @@ fetch_all_spots <- function(spots_path = "config/spots.yaml", days_ahead = 10) {
 if (sys.nframe() == 0) {
   forecast <- fetch_all_spots()
   cat("Model used per spot:\n")
-  print(forecast |> distinct(spot, marine_model))
+  print(forecast |> count(spot, marine_model, wind_model), n = Inf)
   print(head(forecast, 10))
 }

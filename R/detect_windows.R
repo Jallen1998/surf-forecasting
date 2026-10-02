@@ -47,6 +47,7 @@ assemble_blocks <- function(forecast, scored, spots) {
 
   raw_cols <- c(
     "marine_model",
+    "wind_model",
     "wave_height",
     "wave_period",
     "wave_direction",
@@ -256,7 +257,7 @@ if (sys.nframe() == 0) {
     "windows.yaml did not parse" = !is.null(win_cfg$hold_margin)
   )
 
-  forecast <- fetch_all_spots()
+  forecast <- fetch_all_spots(spots = spots)
   # split/map rather than group_modify: group_modify drops `spot` from .x,
   # so score_block() would see row$spot = NULL on every row.
   scored <- forecast |>

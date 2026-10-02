@@ -35,14 +35,38 @@ wind_modifier:
     cross: 0.8
     onshore_light: 0.5
     onshore_strong: 0.15
+    offshore_strong: 0.9      # >= tier onshore_strong_ms: hard to catch, guesses
+    cross_strong: 0.5
   windsea_block:               # period below tier's "good" cutoff — the normal case
     offshore: 1.1
     cross: 1.0
     onshore_light: 0.9
     onshore_strong: 0.6
+    offshore_strong: 0.9
+    cross_strong: 0.7
 
 category_cutoffs:              # composite score (swell_quality x wind_modifier) -> category
   flat: 0
   marginal: 3
   good: 6
   epic: 8.5
+
+# Groundswell = long-period swell component that is a real share of the
+# sea, OR a long blended period (GFS Wave often reports swell as 0).
+groundswell_classification:
+  min_swell_height_m: 0.3
+  min_swell_share: 0.5         # swell height >= this fraction of total wave height
+
+# Exposure to wave direction vs spot facing_deg. Full up to full_deg off
+# the facing, fading linearly to 0 at zero_deg. Without this a southerly
+# sea scored Epic at north-facing Asa north (waves 148 deg off facing).
+direction_exposure:
+  full_deg: 30
+  zero_deg: 100
+
+# Fetch gate: halves windsea blocks unless local wind has blown onshore
+# for windsea_fetch_build_hrs. Already skipped for offshore wind. Under
+# review: it also halved 2.7 m @ 8.75 s at Hanstholm beach in cross-shore
+# wind (sea built far offshore, which the wave model already accounts for).
+fetch_gate:
+  enabled: true
