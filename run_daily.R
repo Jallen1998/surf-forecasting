@@ -5,6 +5,10 @@
 # From the repo root:
 #   Rscript run_daily.R              real run: sends Telegram alert, updates state/windows.csv
 #   Rscript run_daily.R --dry-run    prints the message it WOULD send; no send, state untouched
+#   Rscript run_daily.R --dry-run --page   ...and writes a page preview to scratch/preview.html
+#
+# A real run also rebuilds docs/index.html (the phone page). Dry runs never
+# touch docs/: the bot commits that file, and a local copy would conflict.
 #
 # Telegram credentials come from .Renviron (TELEGRAM_BOT_TOKEN,
 # TELEGRAM_CHAT_ID). Without them nothing is sent and nothing is marked as
@@ -20,6 +24,7 @@ source("R/detect_windows.R")
 source("R/track_windows.R")
 source("R/notify.R")
 source("R/summarise_region.R")
+source("R/render_page.R")
 
 now <- Sys.time()
 res <- run_detect(now = now) # sources fetch/score/daylight, prints windows
@@ -37,6 +42,7 @@ print_events(tr$events)
 
 spots <- load_spots()
 notify_cfg <- load_notify_cfg()
+consider_min <- yaml::read_yaml("config/windows.yaml")$consider$min_score %||% 5
 summaries <- summarise_regions(res$blocks, spots, tr$events, tz = notify_cfg$display_tz)
 
 if (dry_run) {
@@ -45,6 +51,11 @@ if (dry_run) {
     cat("\n---- Telegram message (dry run, not sent) ----\n")
     cat(msgs, sep = "\n\n[next message]\n\n")
     cat("\n")
+  }
+  if ("--page" %in% args) {
+    render_page(res$blocks, tr$state, spots, tiers_cfg, win_cfg, notify_cfg,
+                consider_min, now = now, path = "scratch/preview.html")
+    cat("\nPage preview written to scratch/preview.html\n")
   }
   cat("\nDry run: nothing sent, state/windows.csv not changed.\n")
 } else {
@@ -56,6 +67,8 @@ if (dry_run) {
   }
   new_state <- if (delivered) mark_notified(tr$state, tr$events, at = now) else tr$state
   write_state(new_state)
+  render_page(res$blocks, new_state, spots, tiers_cfg, win_cfg, notify_cfg, consider_min, now = now)
+  cat("Page rebuilt: docs/index.html\n")
   cat(sprintf(
     "\nState saved: %d windows tracked (%s).\n",
     nrow(new_state),
