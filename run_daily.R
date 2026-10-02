@@ -19,6 +19,7 @@ dry_run <- "--dry-run" %in% args
 source("R/detect_windows.R")
 source("R/track_windows.R")
 source("R/notify.R")
+source("R/summarise_region.R")
 
 now <- Sys.time()
 res <- run_detect(now = now) # sources fetch/score/daylight, prints windows
@@ -36,9 +37,10 @@ print_events(tr$events)
 
 spots <- load_spots()
 notify_cfg <- load_notify_cfg()
+summaries <- summarise_regions(res$blocks, spots, tr$events, tz = notify_cfg$display_tz)
 
 if (dry_run) {
-  msgs <- format_alert(tr$events, spots, notify_cfg, now)
+  msgs <- format_alert(tr$events, spots, notify_cfg, now, summaries)
   if (length(msgs)) {
     cat("\n---- Telegram message (dry run, not sent) ----\n")
     cat(msgs, sep = "\n\n[next message]\n\n")
@@ -48,7 +50,7 @@ if (dry_run) {
 } else {
   # mark_notified() only on confirmed delivery, so a failed send is
   # retried next run instead of being silently marked as told.
-  delivered <- notify_events(tr$events, spots, notify_cfg, now)
+  delivered <- notify_events(tr$events, spots, notify_cfg, now, summaries = summaries)
   if (nrow(tr$events) > 0) {
     cat(if (delivered) "Telegram: delivered.\n" else "Telegram: NOT delivered (see warning) — will retry next run.\n")
   }

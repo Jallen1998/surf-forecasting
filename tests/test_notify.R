@@ -67,8 +67,24 @@ calls <- list()
 mock_send <- function(text, silent) { calls[[length(calls) + 1]] <<- silent; TRUE }
 hu <- ev("NEW", "klitmoller", "2026-10-11 05:00:00", "2026-10-11 15:00:00", stage = "heads_up")
 stopifnot(notify_events(hu, spots, cfg, now, send = mock_send), isTRUE(calls[[1]]))
-stopifnot(grepl("HEADS-UP", format_alert(hu, spots, cfg, now)),
-          grepl("low confidence", format_alert(hu, spots, cfg, now)))
+hu_msg <- format_alert(hu, spots, cfg, now)
+stopifnot(grepl("1 heads-up", hu_msg), grepl("low confidence", hu_msg), !grepl("href", hu_msg))
+
+# Compact heads-ups: grouped by region then day, best spot first; full
+# cards come before heads-ups in a mixed message.
+hu2 <- bind_rows(
+  ev("NEW", "klitmoller", "2026-10-11 05:00:00", "2026-10-11 17:00:00", stage = "heads_up"),
+  ev("NEW", "vorupoer", "2026-10-11 05:00:00", "2026-10-11 15:00:00", stage = "heads_up"),
+  ev("NEW", "molle_havn", "2026-10-10 06:00:00", "2026-10-10 10:00:00", stage = "heads_up"))
+hu2$peak_score[2] <- 7.9
+m2 <- format_alert(hu2, spots, cfg, now)
+stopifnot(grepl("3 heads-ups", m2), lengths(regmatches(m2, gregexpr("<u>Sun 11</u>", m2))) == 1)
+stopifnot(regexpr("· Vorupør", m2) < regexpr("· Klitmøller", m2))   # 7.9 before 7.0
+mix <- format_alert(bind_rows(events[2, ], hu2), spots, cfg, now)
+stopifnot(grepl("1 update \\+ 3 heads-ups", mix), regexpr("CONFIRMED", mix) < regexpr("<i>Heads-ups", mix))
+# No "Limit: nothing major" on a full card
+e3 <- events[2, ]; e3$dominant_limit <- "none"
+stopifnot(!grepl("nothing major", format_alert(e3, spots, cfg, now)), grepl("Ends: darkness", format_alert(e3, spots, cfg, now)))
 stopifnot(notify_events(events, spots, cfg, now, send = mock_send), isFALSE(calls[[2]]))
 
 # A failed send reports FALSE (so run_daily does NOT mark the events as told)
