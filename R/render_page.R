@@ -104,6 +104,77 @@ STALE_AFTER_HOURS <- 14 # one missed twice-daily run
   paste(out, collapse = "\n")
 }
 
+# Timeline: one row per spot with something coming up, days across, each
+# window a bar at its real hours. Only TL_FROM..TL_TO local is drawn per
+# day (windows are daylight-only), which makes bars ~50% wider on a phone.
+TL_FROM <- 5
+TL_TO <- 21
+
+.tl_x <- function(t, days, tz) {
+  d <- as.numeric(as.Date(t, tz = tz) - days[1])
+  hr <- as.numeric(format(t, "%H", tz = tz)) + as.numeric(format(t, "%M", tz = tz)) / 60
+  hr <- pmin(pmax(hr, TL_FROM), TL_TO)
+  100 * (d + (hr - TL_FROM) / (TL_TO - TL_FROM)) / length(days)
+}
+
+.timeline <- function(live, cw, spots, days, tz, gfs_days, now, cuts) {
+  rows_spots <- unique(c(live$spot, cw$spot))
+  if (!length(rows_spots)) return("<p class='muted'>No Good+ windows in the next 10 days.</p>")
+  n <- length(days)
+  w_day <- 100 / n
+
+  # Day bands (shared by header and every row): alternate shading, GFS faded.
+  bands <- paste(sprintf("<div class='tl-day%s%s' style='left:%.3f%%;width:%.3f%%'></div>",
+    ifelse(seq_len(n) %% 2 == 0, " alt", ""), ifelse(days %in% gfs_days, " gfs", ""),
+    (seq_len(n) - 1) * w_day, w_day), collapse = "")
+  now_x <- .tl_x(now, days, tz)
+  now_line <- if (now_x >= 0 && now_x <= 100) sprintf("<div class='tl-now' style='left:%.3f%%'></div>", now_x) else ""
+
+  head_labels <- paste(sprintf("<span class='%s' style='left:%.3f%%;width:%.3f%%'>%s<br>%s</span>",
+    ifelse(days %in% gfs_days, "gfs", ""), (seq_len(n) - 1) * w_day, w_day,
+    format(days, "%a"), format(days, "%d")), collapse = "")
+  out <- sprintf("<div class='tl'><div class='tl-row tl-head'><div class='tl-name'></div><div class='tl-track'>%s</div></div>", head_labels)
+
+  bar <- function(cls, start, end, href, title, label) {
+    x1 <- .tl_x(start, days, tz)
+    x2 <- .tl_x(end + 3600, days, tz) # end is the last block's hour: it lasts to the next hour
+    if (x2 <= 0 || x1 >= 100) return("")
+    x1 <- max(x1, 0); x2 <- min(x2, 100)
+    sprintf("<a class='tl-bar %s' href='%s' title='%s' style='left:%.3f%%;width:max(%.3f%%,4px)'>%s</a>",
+            cls, href, .h(title), x1, x2 - x1, label)
+  }
+
+  for (r in unique(spots$region[spots$spot %in% rows_spots])) {
+    out <- c(out, sprintf("<div class='tl-region'>%s</div>", .h(r)))
+    for (s in spots$spot[spots$region == r & spots$spot %in% rows_spots]) {
+      nm <- spots$name[spots$spot == s]
+      bars <- character()
+      cs <- cw[cw$spot == s, ]
+      for (k in seq_len(nrow(cs))) {
+        bars <- c(bars, bar("consider", cs$start[k], cs$end[k], sprintf("#spot-%s", s),
+          sprintf("%s %s %s–%s: worth a look %.1f", nm, .loc(cs$start[k], "%a", tz),
+                  .loc(cs$start[k], "%H", tz), .loc(cs$end[k], "%H", tz), cs$peak_score[k]), ""))
+      }
+      ws <- live[live$spot == s, ]
+      for (k in seq_len(nrow(ws))) {
+        w <- ws[k, ]
+        cls <- paste(if (w$peak_score >= cuts$epic) "epic" else "good",
+                     if (w$status == "faded") "faded" else if (w$stage == "confirmed") "confirmed" else "headsup")
+        bars <- c(bars, bar(cls, w$start, w$end, paste0("#", w$window_id),
+          sprintf("%s %s %s–%s: %s %.1f (%s)", nm, .loc(w$start, "%a", tz), .loc(w$start, "%H", tz),
+                  .loc(w$end, "%H", tz), w$peak_category, w$peak_score, w$stage),
+          sprintf("%.0f", w$peak_score)))
+      }
+      out <- c(out, sprintf("<div class='tl-row'><div class='tl-name'><a href='#spot-%s'>%s</a></div><div class='tl-track'>%s%s%s</div></div>",
+                            s, .h(nm), bands, now_line, paste(bars, collapse = "")))
+    }
+  }
+  paste0(paste(out, collapse = "\n"), "</div>",
+"<div class='legend'><span><i class='lg good'></i>Good</span><span><i class='lg epic'></i>Epic</span>
+<span><i class='lg headsup'></i>Heads-up (GFS)</span><span><i class='lg consider'></i>Worth a look</span>
+<span><i class='lg now'></i>Now</span></div><p class='muted small'>Days shown 05–21. Tap a bar for details.</p>")
+}
+
 # ---- Page ------------------------------------------------------------------------
 render_page <- function(blocks, state, spots, tiers_cfg, win_cfg, notify_cfg, consider_min,
                         now = Sys.time(), path = "docs/index.html", horizon_days = 10) {
@@ -137,6 +208,8 @@ render_page <- function(blocks, state, spots, tiers_cfg, win_cfg, notify_cfg, co
       live$start <= cw$end[i] & live$end >= cw$start[i]), logical(1))
     cw <- cw[!overl, ]
   }
+  timeline_html <- .timeline(live, cw, spots, days, tz, gfs_days, now, cuts)
+
   consider_html <- if (nrow(cw)) paste0("<ul class='consider-list'>", paste(sprintf(
     "<li><b>%s</b> %s %s–%s · %.1f · %.1f m %.0f s · wind %.0f m/s %s</li>",
     .h(unlist(names[cw$spot])), .loc(cw$start, "%a %d", tz), .loc(cw$start, "%H", tz), .loc(cw$end, "%H", tz),
@@ -163,8 +236,9 @@ render_page <- function(blocks, state, spots, tiers_cfg, win_cfg, notify_cfg, co
   generated_iso <- format(now, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
   html <- sprintf(.PAGE_TEMPLATE,
     generated_iso, STALE_AFTER_HOURS, .loc(now, "%a %d %b %H:%M", tz),
-    cards, consider_html,
+    timeline_html, cards,
     .grid(best, spots, days, tz, cuts, consider_min, gfs_days),
+    consider_html,
     outlook_html, .spot_details(best, spots, tz, cuts, consider_min), told_html)
 
   dir.create(dirname(path), showWarnings = FALSE, recursive = TRUE)
@@ -175,7 +249,7 @@ render_page <- function(blocks, state, spots, tiers_cfg, win_cfg, notify_cfg, co
 }
 
 # sprintf template: %% is a literal %. Placeholders, in order: generated ISO,
-# stale hours, generated local, cards, consider, grid, outlook, spot details, alerts.
+# stale hours, generated local, timeline, cards, grid, consider, outlook, spot details, alerts.
 .PAGE_TEMPLATE <- "<!doctype html>
 <html lang='en'>
 <head>
@@ -190,9 +264,9 @@ render_page <- function(blocks, state, spots, tiers_cfg, win_cfg, notify_cfg, co
 <link rel='icon' type='image/png' href='icon-192.png'>
 <style>
 :root{--bg:#0b1820;--panel:#12242f;--line:#1f3644;--text:#e3edf2;--muted:#8ba3b1;
---flat:#22323c;--marginal:#2d4656;--consider:#2f6a72;--good:#2f8a5a;--epic:#c27a1e;--warn:#b3402e;--accent:#6cc4d8}
+--flat:#22323c;--marginal:#2d4656;--consider:#2f6a72;--good:#2f8a5a;--epic:#c27a1e;--warn:#b3402e;--accent:#6cc4d8;--gfs-shade:rgba(0,0,0,.22)}
 @media (prefers-color-scheme: light){:root{--bg:#f4f7f9;--panel:#ffffff;--line:#d9e3e9;--text:#10232d;--muted:#5a7080;
---flat:#e7edf1;--marginal:#cfdde6;--consider:#9fd3d8;--good:#7fcf9e;--epic:#f0b35c;--warn:#c84a36;--accent:#1e7f96}}
+--flat:#e7edf1;--marginal:#cfdde6;--consider:#9fd3d8;--good:#3fa46a;--epic:#d98a26;--warn:#c84a36;--accent:#1e7f96;--gfs-shade:rgba(16,35,45,.05)}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
 padding:16px 16px calc(32px + env(safe-area-inset-bottom))}
@@ -235,6 +309,27 @@ details .detail{display:block;overflow-x:auto}
 ul{padding-left:18px;margin:6px 0}li{margin:4px 0}
 .st-cancelled{color:var(--warn)}.st-expired{color:var(--muted)}
 footer{margin-top:32px;font-size:.75rem;color:var(--muted)}
+.tl{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 8px 10px}
+.tl-row{display:flex;align-items:center;height:30px}
+.tl-name{width:84px;flex:none;font-size:.74rem;line-height:1.1;padding-right:6px;overflow-wrap:anywhere}
+.tl-name a{color:var(--text);text-decoration:none}
+.tl-track{position:relative;flex:1;height:100%%}
+.tl-head{height:34px}.tl-head .tl-track span{position:absolute;top:0;text-align:center;font-size:.66rem;line-height:1.15;color:var(--muted)}
+.tl-head .tl-track span.gfs{opacity:.55}
+.tl-region{font-size:.66rem;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin:8px 0 0}
+.tl-day{position:absolute;top:0;bottom:0}.tl-day.alt{background:rgba(127,160,180,.08)}
+.tl-day.gfs{background-image:linear-gradient(var(--gfs-shade),var(--gfs-shade))}
+.tl-now{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--accent);z-index:2}
+.tl-bar{position:absolute;top:5px;bottom:5px;border-radius:4px;z-index:1;color:#fff;font-size:.66rem;font-weight:700;
+display:flex;align-items:center;justify-content:center;overflow:hidden;text-decoration:none}
+.tl-bar.good{background:var(--good)}.tl-bar.epic{background:var(--epic)}
+.tl-bar.headsup{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.28) 0 3px,transparent 3px 7px)}
+.tl-bar.faded{opacity:.45}
+.tl-bar.consider{background:var(--consider);top:11px;bottom:11px;opacity:.9}
+.legend i.lg{width:16px}.lg.good{background:var(--good)}.lg.epic{background:var(--epic)}
+.lg.headsup{background:var(--good) repeating-linear-gradient(135deg,rgba(255,255,255,.35) 0 3px,transparent 3px 7px)}
+.lg.consider{background:var(--consider);height:6px!important;vertical-align:1px!important}
+.lg.now{background:var(--accent);width:3px!important}
 </style>
 </head>
 <body><main>
@@ -243,9 +338,7 @@ footer{margin-top:32px;font-size:.75rem;color:var(--muted)}
 
 <h2>Windows</h2>
 %s
-
-<h2>Worth a look</h2>
-<p class='muted small'>Scores 5–6: below Good, but maybe worth a drive in the right mood. Never pushed as alerts.</p>
+<h3>Details</h3>
 %s
 
 <h2>Next 10 days</h2>
@@ -253,6 +346,10 @@ footer{margin-top:32px;font-size:.75rem;color:var(--muted)}
 <div class='legend'><span><i style='background:var(--good)'></i>Good 6+</span><span><i style='background:var(--epic)'></i>Epic 8.5+</span>
 <span><i style='background:var(--consider)'></i>Worth a look 5–6</span><span><i style='background:var(--marginal)'></i>Marginal</span>
 <span>Faded columns: GFS (low confidence)</span></div>
+
+<h2>Worth a look</h2>
+<p class='muted small'>Scores 5–6: below Good, but maybe worth a drive in the right mood. Never pushed as alerts.</p>
+%s
 
 <h2>Outlook</h2>
 %s
