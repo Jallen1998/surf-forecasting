@@ -11,3 +11,6 @@
 # Local scratch / raw API dumps
 scratch/
 *.rds
+
+# Files the Claude app saves into the repo folder (previews, attachments)
+Claude outputs/

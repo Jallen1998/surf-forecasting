@@ -6,6 +6,10 @@
 #   Rscript run_daily.R              real run: sends Telegram alert, updates state/windows.csv
 #   Rscript run_daily.R --dry-run    prints the message it WOULD send; no send, state untouched
 #   Rscript run_daily.R --dry-run --page   ...and writes a page preview to scratch/preview.html
+#   Rscript run_daily.R --dry-run --digest ...and prints this week's digest
+#
+# The weekly digest goes out on the Sunday-evening real run (R/digest.R);
+# add --digest to a real run to force one.
 #
 # A real run also rebuilds docs/index.html (the phone page). Dry runs never
 # touch docs/: the bot commits that file, and a local copy would conflict.
@@ -25,6 +29,7 @@ source("R/track_windows.R")
 source("R/notify.R")
 source("R/summarise_region.R")
 source("R/render_page.R")
+source("R/digest.R")
 
 now <- Sys.time()
 res <- run_detect(now = now) # sources fetch/score/daylight, prints windows
@@ -57,6 +62,10 @@ if (dry_run) {
                 consider_min, now = now, path = "scratch/preview.html")
     cat("\nPage preview written to scratch/preview.html\n")
   }
+  if ("--digest" %in% args) {
+    cat("\n---- Weekly digest (dry run, not sent) ----\n")
+    cat(format_digest(tr$state, res$blocks, spots, notify_cfg, now, consider_min), "\n")
+  }
   cat("\nDry run: nothing sent, state/windows.csv not changed.\n")
 } else {
   # mark_notified() only on confirmed delivery, so a failed send is
@@ -69,6 +78,12 @@ if (dry_run) {
   write_state(new_state)
   render_page(res$blocks, new_state, spots, tiers_cfg, win_cfg, notify_cfg, consider_min, now = now)
   cat("Page rebuilt: docs/index.html\n")
+
+  if ("--digest" %in% args || digest_due(now, notify_cfg$display_tz)) {
+    sent <- telegram_send(format_digest(new_state, res$blocks, spots, notify_cfg, now, consider_min))
+    if (sent) mark_digest_sent(now, notify_cfg$display_tz)
+    cat(if (sent) "Weekly digest: delivered.\n" else "Weekly digest: NOT delivered — will retry next run.\n")
+  }
   cat(sprintf(
     "\nState saved: %d windows tracked (%s).\n",
     nrow(new_state),

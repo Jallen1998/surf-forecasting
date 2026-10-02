@@ -149,7 +149,7 @@ summarise_regions <- function(blocks, spots, events, tz = "Europe/Copenhagen") {
     days <- seq(min(as.Date(ev$start, tz = tz)), max(as.Date(ev$end, tz = tz)), by = "day")
     p <- region_days(blocks, spots$spot[spots$region %in% r], days, tz)
     if (is.null(p)) next
-    long <- length(days) >= 7 # weekday names repeat beyond a week: add the date
+    long <- length(days) > 7 # weekday names repeat beyond a week: add the date
     event_days <- unique(unlist(lapply(seq_len(nrow(ev)), function(k)
       as.character(seq(as.Date(ev$start[k], tz = tz), as.Date(ev$end[k], tz = tz), by = "day")))))
     parts <- c(swell_clause(p, long), wind_clause(p, long, as.Date(event_days)))
