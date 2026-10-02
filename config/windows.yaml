@@ -12,3 +12,9 @@ detection:
   hold_margin: 1.0        # once open, a window stays open while score >= good - hold_margin
   max_gap_hours: 1        # bridge dips below the hold level lasting at most this many hours
   min_duration_hours: 2   # shorter windows are dropped (not worth a drive)
+
+# "Worth a look" band below Good. Shown on the phone page only, never
+# pushed (Jack, 2026-10-02). Prompted by Molle 2026-10-05: 1.3 m @ 5 s
+# offshore scored 5.6, a session Jack would want to consider.
+consider:
+  min_score: 5.0

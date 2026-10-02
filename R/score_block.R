@@ -209,7 +209,14 @@ score_block <- function(row, history, idx, tiers_cfg) {
   # otherwise the overall wave direction.
   wave_dir <- if (swell_dominant) row$swell_wave_direction else row$wave_direction
   if (is.null(row$facing_deg)) stop("score_block: facing_deg missing for ", row$spot)
-  exposure <- direction_exposure(wave_dir, row$facing_deg, tiers_cfg$direction_exposure)
+  dir_cfg <- tiers_cfg$direction_exposure
+  if (!is.null(row$exposure_full_deg) && !is.na(row$exposure_full_deg)) {
+    dir_cfg$full_deg <- row$exposure_full_deg
+  }
+  if (!is.null(row$exposure_zero_deg) && !is.na(row$exposure_zero_deg)) {
+    dir_cfg$zero_deg <- row$exposure_zero_deg
+  }
+  exposure <- direction_exposure(wave_dir, row$facing_deg, dir_cfg)
 
   # ---- Wind ----
   wcat <- wind_category(

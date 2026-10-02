@@ -55,7 +55,10 @@ load_spots <- function(path = "config/spots.yaml") {
         tier = spot_cfg$tier,
         facing_deg = spot_cfg$facing_deg,
         offshore_arc_min = spot_cfg$offshore_arc[[1]],
-        offshore_arc_max = spot_cfg$offshore_arc[[2]]
+        offshore_arc_max = spot_cfg$offshore_arc[[2]],
+        # Optional per-spot direction tolerance (NA = use tiers.yaml default)
+        exposure_full_deg = spot_cfg$exposure_full_deg %||% NA_real_,
+        exposure_zero_deg = spot_cfg$exposure_zero_deg %||% NA_real_
       )
     }) |>
     bind_rows()
@@ -279,7 +282,9 @@ fetch_spot_forecast <- function(spot_row, days_ahead = 10) {
       tier = spot_row$tier,
       facing_deg = spot_row$facing_deg,
       offshore_arc_min = spot_row$offshore_arc_min,
-      offshore_arc_max = spot_row$offshore_arc_max
+      offshore_arc_max = spot_row$offshore_arc_max,
+      exposure_full_deg = spot_row$exposure_full_deg,
+      exposure_zero_deg = spot_row$exposure_zero_deg
     ) |>
     relocate(spot, tier, datetime)
 }

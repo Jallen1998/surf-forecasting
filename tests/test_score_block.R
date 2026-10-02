@@ -12,16 +12,18 @@ stopifnot(
 # Build n identical hourly rows (so the fetch gate sees a steady history)
 # and score the last one. Defaults: Molle havn, waves head-on.
 blk <- function(wave_h, wave_p, wave_dir = 30, swell_h = 0, swell_p = 0, swell_dir = wave_dir,
-                wdir = 215, wspd = 7, tier = "B_mixed", facing = 30, arc = c(180, 250), n = 12) {
+                wdir = 215, wspd = 7, tier = "B_mixed", facing = 30, arc = c(180, 250), n = 12,
+                full_deg = NA, zero_deg = NA, cfg = tiers) {
   h <- data.frame(
     spot = "test", tier = tier,
     datetime = as.POSIXct("2026-10-05", tz = "UTC") + (0:(n - 1)) * 3600,
     wave_height = wave_h, wave_period = wave_p, wave_direction = wave_dir,
     swell_wave_height = swell_h, swell_wave_period = swell_p, swell_wave_direction = swell_dir,
     wind_speed_10m = wspd, wind_direction_10m = wdir,
-    facing_deg = facing, offshore_arc_min = arc[1], offshore_arc_max = arc[2]
+    facing_deg = facing, offshore_arc_min = arc[1], offshore_arc_max = arc[2],
+    exposure_full_deg = full_deg, exposure_zero_deg = zero_deg
   )
-  s <- score_spot(h, tiers)
+  s <- score_spot(h, cfg)
   s[nrow(s), ]
 }
 
@@ -33,19 +35,22 @@ stopifnot(b$block_type == "windsea_block", b$score == 5.6, b$category == "Margin
 # 2. Same day midday: 1.34 m @ 5.3 s offshore. Gate used to halve to 2.8.
 stopifnot(blk(1.34, 5.3)$score == 5.6)
 
-# 3. Gate still halves onshore windsea that hasn't built: onshore (30 deg)
-#    only in the final 2 of 12 hours.
-h_wdir <- c(rep(215, 10), 30, 30)
-b <- (function() {
+# 3. Fetch gate: disabled by default (2026-10-02). When re-enabled it still
+#    halves onshore windsea that hasn't built (onshore only in final 2 of 12 h).
+stopifnot(isFALSE(tiers$fetch_gate$enabled))
+gate_case <- function(cfg) {
   h <- data.frame(spot = "test", tier = "B_mixed",
     datetime = as.POSIXct("2026-10-05", tz = "UTC") + (0:11) * 3600,
     wave_height = 1.34, wave_period = 5.3, wave_direction = 30,
     swell_wave_height = 0, swell_wave_period = 0, swell_wave_direction = 30,
-    wind_speed_10m = 7, wind_direction_10m = h_wdir,
+    wind_speed_10m = 7, wind_direction_10m = c(rep(215, 10), 30, 30),
     facing_deg = 30, offshore_arc_min = 180, offshore_arc_max = 250)
-  s <- score_spot(h, tiers); s[12, ]
-})()
-stopifnot(b$block_type == "windsea_block", b$score < 3)
+  s <- score_spot(h, cfg); s[12, ]
+}
+tiers_gate <- tiers; tiers_gate$fetch_gate$enabled <- TRUE
+stopifnot(gate_case(tiers)$score == 4.5)        # 5.05 * 0.9 onshore_light, no halving
+stopifnot(gate_case(tiers_gate)$score == 2.3)   # halved
+stopifnot(gate_case(tiers_gate)$limiting_factor %in% c("wind_onshore_light", "fetch_not_built"))
 
 # 4. Real groundswell under chop via the swell component (blended period short)
 b <- blk(1.2, 7, swell_h = 0.8, swell_p = 10)
@@ -84,5 +89,14 @@ a <- function(h) blk(h, 10, wave_dir = 280, swell_h = h, swell_p = 10, tier = "A
                      facing = 280, arc = c(80, 160), wdir = 120, wspd = 4)
 stopifnot(a(0.6)$category == "Good", a(0.6)$block_type == "groundswell_block")
 stopifnot(a(0.1)$category == "Flat")
+
+# 11. Hanstholm point per-spot override (Jack: works in W/WNW storm swell).
+#     Same 284 deg sea as case 9 gets full exposure with full_deg 80 / zero_deg 120,
+#     but a SW sea (230 deg, 130 off) is still zeroed.
+b <- blk(2.0, 8.95, wave_dir = 284, tier = "A_groundswell", facing = 0, arc = c(150, 230),
+         wdir = 200, wspd = 6, full_deg = 80, zero_deg = 120)
+stopifnot(b$exposure == 1, b$score >= 6)  # 7.875 * 1.1 offshore = 8.7
+stopifnot(blk(2.0, 8.95, wave_dir = 230, tier = "A_groundswell", facing = 0, arc = c(150, 230),
+              wdir = 200, wspd = 6, full_deg = 80, zero_deg = 120)$exposure == 0)
 
 cat("All score_block tests passed.\n")

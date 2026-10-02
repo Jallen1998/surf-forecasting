@@ -22,6 +22,12 @@ spots:
     tier: A_groundswell
     facing_deg: 0             # faces more north — catches N-leaning swell directly
     offshore_arc: [150, 230]  # S through SE-SW is offshore here, per Jack's note
+    # Per-spot override of tiers.yaml direction_exposure. Jack (2026-10-02):
+    # works in big W/WNW storm swells, which wrap round the harbour, so
+    # ~280 deg (80 deg off facing) gets full exposure; SW (~230) and beyond
+    # still fades out.
+    exposure_full_deg: 80
+    exposure_zero_deg: 120
     note: >
       Longboard point wave, east of the beach break past the next break
       wall. Needs a swell with more north in it, wind from south or no
