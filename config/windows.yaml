@@ -18,3 +18,18 @@ detection:
 # offshore scored 5.6, a session Jack would want to consider.
 consider:
   min_score: 5.0
+
+# Tracking windows across runs (R/track_windows.R). Alerts are decided by
+# comparing each window with what you were LAST TOLD about it, not with
+# the previous run, so wobble between runs never re-alerts.
+tracking:
+  match_slack_hours: 3          # windows at the same spot match if their spans overlap within this slack
+  confirm_ewam_share: 0.5       # stage = confirmed once >= this share of hours is EWAM (else heads_up)
+  change_start_hours: 3         # confirmed windows: start moved >= this vs last alert -> CHANGED
+  change_duration_frac: 0.5     # ...or duration changed by >= this fraction
+  change_duration_min_hours: 2  #    and by at least this many hours
+  keep_past_days: 14            # keep finished windows this long (weekly digest, recalibration prompts)
+  # A window that disappears is CANCELLED only if the best score left in
+  # its old span drops below detection hold level (good - hold_margin).
+  # Otherwise it is "faded": kept silently, and if it comes back nothing
+  # is sent unless it differs from what you were last told.

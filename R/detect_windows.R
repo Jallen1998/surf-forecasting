@@ -203,7 +203,24 @@ detect_windows <- function(blocks, good_cutoff, cfg, now = Sys.time()) {
       map(spans, ~ .summarise_span(d, .x, good_cutoff, now)) |> list_rbind()
     }) |>
     list_rbind() |>
-    (\(x) if (nrow(x) == 0) x else arrange(x, start, spot))()
+    (\(x) if (nrow(x) == 0) .empty_windows() else arrange(x, start, spot))()
+}
+
+# Zero-row result with the full column set. A flat week produces no
+# windows, and downstream code (tracking, the page) must still find every
+# column; list_rbind() of nothing returns a table with NO columns.
+.empty_windows <- function() {
+  ts <- as.POSIXct(character(), tz = "UTC")
+  tibble::tibble(
+    spot = character(), tier = character(), start = ts, end = ts,
+    n_hours = integer(), n_good_hours = integer(), peak_time = ts,
+    peak_score = numeric(), peak_category = character(), mean_score = numeric(),
+    wave_height = numeric(), wave_period = numeric(), swell_height = numeric(),
+    swell_period = numeric(), swell_dir = numeric(), wind_speed = numeric(),
+    wind_dir = numeric(), wind_category = character(), block_type = character(),
+    dominant_limit = character(), before_start = character(), after_end = character(),
+    ewam_share = numeric(), status = character(), lead_hours = numeric()
+  )
 }
 
 # ---- Human-readable check (local time) --------------------------------------
@@ -240,9 +257,13 @@ print_windows <- function(windows, tz = "Europe/Copenhagen") {
 }
 
 # ---- Manual run --------------------------------------------------------------
-# From the repo root:  Rscript R/detect_windows.R
-# or source() it in Positron after setting the working directory.
-if (sys.nframe() == 0) {
+# Terminal (repo root):  Rscript R/detect_windows.R
+# Positron console:      source("R/detect_windows.R"); res <- run_detect()
+#   then inspect res$blocks / res$windows. Working directory must be the
+#   repo root (relative config/ and R/ paths).
+# (Sourcing alone only defines functions: the sys.nframe() guard below is
+# TRUE only under Rscript.)
+run_detect <- function(now = Sys.time()) {
   source("R/fetch_forecast.R")
   source("R/score_block.R")
   source("R/daylight.R")
@@ -266,6 +287,11 @@ if (sys.nframe() == 0) {
     list_rbind()
 
   blocks <- assemble_blocks(forecast, scored, spots) |> add_daylight(win_cfg)
-  windows <- detect_windows(blocks, tiers_cfg$category_cutoffs$good, win_cfg)
+  windows <- detect_windows(blocks, tiers_cfg$category_cutoffs$good, win_cfg, now = now)
   print_windows(windows)
+  invisible(list(blocks = blocks, windows = windows))
+}
+
+if (sys.nframe() == 0) {
+  run_detect()
 }

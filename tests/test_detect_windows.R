@@ -81,6 +81,7 @@ err <- tryCatch(assemble_blocks(fc, data.frame(spot = "A", datetime = hrs(0:1)),
 stopifnot(grepl("Duplicate", err))
 
 # Empty case
-stopifnot(nrow(detect_windows(transform(blocks, score = 1), GOOD, cfg, now)) == 0)
+empty <- detect_windows(transform(blocks, score = 1), GOOD, cfg, now)
+stopifnot(nrow(empty) == 0, identical(names(empty), names(w)))  # flat week keeps full schema
 
 cat("\nAll detect_windows tests passed.\n")
