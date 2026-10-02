@@ -142,6 +142,9 @@ add_daylight <- function(blocks, cfg) {
   p <- which.max(w$score)
   start <- w$datetime[1]
   end <- w$datetime[nrow(w)]
+  # Value at the peak hour; NA (not a silently dropped column) if the
+  # input lacks it. tibble() drops NULL arguments without a word.
+  at_peak <- function(col) if (col %in% names(w)) w[[col]][p] else NA
 
   tibble::tibble(
     spot = w$spot[1],
@@ -154,15 +157,16 @@ add_daylight <- function(blocks, cfg) {
     peak_score = w$score[p],
     peak_category = w$category[p],
     mean_score = round(mean(w$score), 1),
-    wave_height = w$wave_height[p],
-    wave_period = w$wave_period[p],
-    swell_height = w$swell_wave_height[p],
-    swell_period = w$swell_wave_period[p],
-    swell_dir = w$swell_wave_direction[p],
-    wind_speed = w$wind_speed_10m[p],
-    wind_dir = w$wind_direction_10m[p],
-    wind_category = w$wind_category[p],
-    block_type = w$block_type[p],
+    wave_height = at_peak("wave_height"),
+    wave_period = at_peak("wave_period"),
+    swell_height = at_peak("swell_wave_height"),
+    swell_period = at_peak("swell_wave_period"),
+    swell_dir = at_peak("swell_wave_direction"),
+    wave_dir = at_peak("wave_direction"),
+    wind_speed = at_peak("wind_speed_10m"),
+    wind_dir = at_peak("wind_direction_10m"),
+    wind_category = at_peak("wind_category"),
+    block_type = at_peak("block_type"),
     dominant_limit = .mode_limit(w$limiting_factor),
     before_start = .edge_reason(d, span[1] - 1),
     after_end = .edge_reason(d, span[2] + 1),
@@ -216,7 +220,7 @@ detect_windows <- function(blocks, good_cutoff, cfg, now = Sys.time()) {
     n_hours = integer(), n_good_hours = integer(), peak_time = ts,
     peak_score = numeric(), peak_category = character(), mean_score = numeric(),
     wave_height = numeric(), wave_period = numeric(), swell_height = numeric(),
-    swell_period = numeric(), swell_dir = numeric(), wind_speed = numeric(),
+    swell_period = numeric(), swell_dir = numeric(), wave_dir = numeric(), wind_speed = numeric(),
     wind_dir = numeric(), wind_category = character(), block_type = character(),
     dominant_limit = character(), before_start = character(), after_end = character(),
     ewam_share = numeric(), status = character(), lead_hours = numeric()

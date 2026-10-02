@@ -36,7 +36,7 @@ library(dplyr)
   ts = c("start", "end", "peak_time", "first_seen", "last_seen",
          "notified_at", "notified_start", "notified_end"),
   num = c("n_hours", "n_good_hours", "peak_score", "mean_score", "wave_height",
-          "wave_period", "swell_height", "swell_period", "swell_dir", "wind_speed",
+          "wave_period", "swell_height", "swell_period", "swell_dir", "wave_dir", "wind_speed",
           "wind_dir", "ewam_share"),
   chr = c("window_id", "spot", "tier", "status", "stage", "peak_category",
           "wind_category", "block_type", "dominant_limit", "before_start",
@@ -46,7 +46,7 @@ library(dplyr)
   "window_id", "spot", "tier", "status", "stage", "start", "end", "n_hours",
   "n_good_hours", "peak_time", "peak_score", "peak_category", "mean_score",
   "wave_height", "wave_period", "swell_height", "swell_period", "swell_dir",
-  "wind_speed", "wind_dir", "wind_category", "block_type", "dominant_limit",
+  "wave_dir", "wind_speed", "wind_dir", "wind_category", "block_type", "dominant_limit",
   "before_start", "after_end", "ewam_share", "first_seen", "last_seen",
   "notified_at", "notified_stage", "notified_start", "notified_end",
   "notified_peak_category"
@@ -82,8 +82,12 @@ read_state <- function(path = "state/windows.csv") {
   if (!file.exists(path)) return(empty_state())
   raw <- utils::read.csv(path, colClasses = "character", na.strings = c("", "NA"),
                          encoding = "UTF-8")
-  missing <- setdiff(.STATE_COLS, names(raw))
-  if (length(missing) > 0) stop("State file missing columns: ", paste(missing, collapse = ", "))
+  # Columns added in later versions are filled with NA so an older state
+  # file still loads; identity columns must exist.
+  if (!all(c("window_id", "spot", "status", "start", "end") %in% names(raw))) {
+    stop("State file is missing core columns: not a windows.csv?")
+  }
+  for (col in setdiff(.STATE_COLS, names(raw))) raw[[col]] <- NA_character_
   out <- tibble::as_tibble(raw[, .STATE_COLS])
   for (col in .STATE_SPEC$ts) out[[col]] <- .parse_ts(out[[col]])
   for (col in .STATE_SPEC$num) out[[col]] <- as.numeric(out[[col]])

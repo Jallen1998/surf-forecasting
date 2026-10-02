@@ -1,0 +1,12 @@
+# notify.yaml
+# Telegram delivery. Credentials are NOT here: they come from environment
+# variables TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID (.Renviron locally,
+# GitHub Secrets in Actions). This file is committed to a public repo.
+
+page_url: https://jallen1998.github.io/surf-forecasting/
+display_tz: Europe/Copenhagen
+
+# Send with no sound/vibration when EVERY alert in a message is a GFS-range
+# heads-up (5+ days out, low confidence). Anything confirmed or cancelled
+# still buzzes.
+silent_if_only_heads_up: true
