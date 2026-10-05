@@ -65,7 +65,7 @@ direction_exposure:
   zero_deg: 100
 
 # Fetch gate: halves windsea blocks unless local wind has blown onshore
-# for windsea_fetch_build_hrs. DISABLED 2026-10-02 (Jack's decision): it
+# for windsea_fetch_build_hrs. DISABLED 2026-10-02: it
 # double-counts what the wave model already resolves. It halved 2.7 m @
 # 8.75 s at Hanstholm beach because cross-shore wind wasn't in the narrow
 # onshore arc, and halved Kattegat clean-up sessions in offshore wind.

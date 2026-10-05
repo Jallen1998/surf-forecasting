@@ -12,5 +12,5 @@
 scratch/
 *.rds
 
-# Files the Claude app saves into the repo folder (previews, attachments)
+# Local previews / attachments
 Claude outputs/

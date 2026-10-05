@@ -1,9 +1,9 @@
 # track_windows.R
 # Gives windows an identity across runs and decides what is worth telling
-# you. Input: this run's detect_windows() output + the saved state file.
+# me. Input: this run's detect_windows() output + the saved state file.
 # Output: the updated state + a list of events to notify.
 #
-# Core rule: alerts compare each window with what you were LAST TOLD about
+# Core rule: alerts compare each window with what I was LAST TOLD about
 # it (the notified_* columns), never with the previous run. So a window
 # that wobbles between runs, or fades and comes back unchanged, sends
 # nothing.

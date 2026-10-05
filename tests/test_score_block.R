@@ -90,7 +90,7 @@ a <- function(h) blk(h, 10, wave_dir = 280, swell_h = h, swell_p = 10, tier = "A
 stopifnot(a(0.6)$category == "Good", a(0.6)$block_type == "groundswell_block")
 stopifnot(a(0.1)$category == "Flat")
 
-# 11. Hanstholm point per-spot override (Jack: works in W/WNW storm swell).
+# 11. Hanstholm point per-spot override (works in W/WNW storm swell).
 #     Same 284 deg sea as case 9 gets full exposure with full_deg 80 / zero_deg 120,
 #     but a SW sea (230 deg, 130 off) is still zeroed.
 b <- blk(2.0, 8.95, wave_dir = 284, tier = "A_groundswell", facing = 0, arc = c(150, 230),

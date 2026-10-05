@@ -30,8 +30,8 @@ load_tiers <- function(path = "config/tiers.yaml") read_yaml(path)
 
 # Numeric scores for each category, used to combine height + period into
 # one swell_quality number. These weights (period valued higher than
-# height, per the earlier discussion that period is the dominant quality
-# signal) are a deliberate design choice, not a physical constant.
+# height, because period is the stronger signal of
+# quality) are a deliberate design choice, not a physical constant.
 .CATEGORY_SCORE <- c(poor = 2, marginal = 4, good = 7, epic = 9.5)
 PERIOD_WEIGHT <- 0.65
 HEIGHT_WEIGHT <- 0.35
@@ -78,8 +78,8 @@ direction_exposure <- function(wave_dir, facing_deg, dir_cfg) {
 
 # ---- Wind direction classification, with arc wraparound handled -----------
 # offshore_arc_min/max define the directional window FROM WHICH wind is
-# offshore. Arcs that cross 0/360 (e.g. [320, 40]) are handled explicitly —
-# this was flagged as unhandled in spots.yaml and is fixed here.
+# offshore. Arcs that cross 0/360 (e.g. [320, 40]) are handled explicitly
+# (Åsa south and Smygehuk need this).
 .in_arc <- function(wind_dir, arc_min, arc_max) {
   if (arc_min <= arc_max) {
     wind_dir >= arc_min & wind_dir <= arc_max
@@ -252,7 +252,7 @@ score_block <- function(row, history, idx, tiers_cfg) {
       tier_cfg$fetch_min_speed_ms,
       tier_cfg$windsea_fetch_build_hrs
     )
-    if (!fetch_ok) score <- score * 0.5 # cap, don't zero — matches earlier design decision
+    if (!fetch_ok) score <- score * 0.5 # cap, don't zero
   }
 
   cutoffs <- tiers_cfg$category_cutoffs
@@ -269,7 +269,7 @@ score_block <- function(row, history, idx, tiers_cfg) {
   }
 
   # limiting_factor: the single biggest thing capping this score, named
-  # plainly — this is the piece that was the whole point of the project.
+  # plainly. Knowing WHY a session scores low is half the value.
   limiting_factor <- dplyr::case_when(
     is.na(score) ~ "missing_data",
     exposure < 0.5 ~ "swell_direction",
