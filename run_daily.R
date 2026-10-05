@@ -40,7 +40,14 @@ trk_cfg <- load_tracking_cfg()
 hold_level <- tiers_cfg$category_cutoffs$good - win_cfg$hold_margin
 
 state <- read_state()
-tr <- track_windows(res$windows, state, res$blocks, trk_cfg, hold_level, now = now)
+tr <- track_windows(
+  res$windows,
+  state,
+  res$blocks,
+  trk_cfg,
+  hold_level,
+  now = now
+)
 
 cat("\n---- Alerts this run ----\n")
 print_events(tr$events)
@@ -48,7 +55,12 @@ print_events(tr$events)
 spots <- load_spots()
 notify_cfg <- load_notify_cfg()
 consider_min <- yaml::read_yaml("config/windows.yaml")$consider$min_score %||% 5
-summaries <- summarise_regions(res$blocks, spots, tr$events, tz = notify_cfg$display_tz)
+summaries <- summarise_regions(
+  res$blocks,
+  spots,
+  tr$events,
+  tz = notify_cfg$display_tz
+)
 
 if (dry_run) {
   msgs <- format_alert(tr$events, spots, notify_cfg, now, summaries)
@@ -58,35 +70,92 @@ if (dry_run) {
     cat("\n")
   }
   if ("--page" %in% args) {
-    render_page(res$blocks, tr$state, spots, tiers_cfg, win_cfg, notify_cfg,
-                consider_min, now = now, path = "scratch/preview.html")
+    render_page(
+      res$blocks,
+      tr$state,
+      spots,
+      tiers_cfg,
+      win_cfg,
+      notify_cfg,
+      consider_min,
+      now = now,
+      path = "scratch/preview.html"
+    )
     cat("\nPage preview written to scratch/preview.html\n")
   }
   if ("--digest" %in% args) {
     cat("\n---- Weekly digest (dry run, not sent) ----\n")
-    cat(format_digest(tr$state, res$blocks, spots, notify_cfg, now, consider_min), "\n")
+    cat(
+      format_digest(tr$state, res$blocks, spots, notify_cfg, now, consider_min),
+      "\n"
+    )
   }
   cat("\nDry run: nothing sent, state/windows.csv not changed.\n")
 } else {
   # mark_notified() only on confirmed delivery, so a failed send is
   # retried next run instead of being silently marked as told.
-  delivered <- notify_events(tr$events, spots, notify_cfg, now, summaries = summaries)
+  delivered <- notify_events(
+    tr$events,
+    spots,
+    notify_cfg,
+    now,
+    summaries = summaries
+  )
   if (nrow(tr$events) > 0) {
-    cat(if (delivered) "Telegram: delivered.\n" else "Telegram: NOT delivered (see warning) — will retry next run.\n")
+    cat(
+      if (delivered) {
+        "Telegram: delivered.\n"
+      } else {
+        "Telegram: NOT delivered (see warning) — will retry next run.\n"
+      }
+    )
   }
-  new_state <- if (delivered) mark_notified(tr$state, tr$events, at = now) else tr$state
+  new_state <- if (delivered) {
+    mark_notified(tr$state, tr$events, at = now)
+  } else {
+    tr$state
+  }
   write_state(new_state)
-  render_page(res$blocks, new_state, spots, tiers_cfg, win_cfg, notify_cfg, consider_min, now = now)
+  render_page(
+    res$blocks,
+    new_state,
+    spots,
+    tiers_cfg,
+    win_cfg,
+    notify_cfg,
+    consider_min,
+    now = now
+  )
   cat("Page rebuilt: docs/index.html\n")
 
   if ("--digest" %in% args || digest_due(now, notify_cfg$display_tz)) {
-    sent <- telegram_send(format_digest(new_state, res$blocks, spots, notify_cfg, now, consider_min))
-    if (sent) mark_digest_sent(now, notify_cfg$display_tz)
-    cat(if (sent) "Weekly digest: delivered.\n" else "Weekly digest: NOT delivered — will retry next run.\n")
+    sent <- telegram_send(format_digest(
+      new_state,
+      res$blocks,
+      spots,
+      notify_cfg,
+      now,
+      consider_min
+    ))
+    if (sent) {
+      mark_digest_sent(now, notify_cfg$display_tz)
+    }
+    cat(
+      if (sent) {
+        "Weekly digest: delivered.\n"
+      } else {
+        "Weekly digest: NOT delivered — will retry next run.\n"
+      }
+    )
   }
   cat(sprintf(
     "\nState saved: %d windows tracked (%s).\n",
     nrow(new_state),
-    paste(names(table(new_state$status)), table(new_state$status), sep = "=", collapse = ", ")
+    paste(
+      names(table(new_state$status)),
+      table(new_state$status),
+      sep = "=",
+      collapse = ", "
+    )
   ))
 }
