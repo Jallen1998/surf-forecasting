@@ -2,7 +2,7 @@
 
 **A small automated system that tells me when it's worth driving to the coast to surf.**
 
-I live in Copenhagen. The surf here is rare and short-lived, and the spots are spread across Denmark and Sweden, some of them hours away by car. Checking forecast sites every day is slow, and they don't know which conditions actually work at each break. So I built a tool that checks for me twice a day and only sends me a message when something changes.
+I live in Copenhagen as a passionate surfer. The surf nearby is rare and short-lived, and the spots are spread across Denmark and Sweden, some of them hours away by car. Checking forecast sites every day is slow, and they don't know which conditions actually work at each break. So I built a tool that checks for me twice a day and only sends me a message when something changes.
 
 **Live page:** [jallen1998.github.io/surf-forecasting](https://jallen1998.github.io/surf-forecasting/)
 
