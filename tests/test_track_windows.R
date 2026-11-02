@@ -79,6 +79,13 @@ stopifnot(types(ev) == "CANCELLED", ev$window_id == "klitmoller-1011")
 ev <- run(win("klitmoller", 11, 15, ewam = 1), now = T0 + 8.2 * 86400)
 stopifnot(types(ev) == "NEW", ev$window_id == "klitmoller-1011b")
 
+# A heads-up I was told about that drops out is cancelled SILENTLY
+# (only confirmed windows get a CANCELLED event)
+state <- empty_state()
+invisible(run(win("vorupoer", 5, 12), now = T0))
+ev <- run(win("vorupoer", 1, 0)[0, ], blocks = blk("vorupoer", 2), now = T0 + 12 * 3600)
+stopifnot(nrow(ev) == 0, state$status == "cancelled")
+
 # Failed delivery: events not marked, so they fire again next run
 state <- empty_state()
 ev1 <- run(win("vorupoer", 5, 12), now = T0, deliver = FALSE)

@@ -16,7 +16,7 @@ I live in Copenhagen as a passionate surfer. The surf nearby is rare and short-l
 
 - **Scores every hour at every spot** for the next 10 days, using free forecast data.
 - **Finds "windows"**: stretches of at least 2 hours of good surf in daylight.
-- **Sends me one Telegram message** when a window appears, gets more certain, gets better or worse, moves, or disappears. If nothing new has happened, it says nothing.
+- **Sends me one short Telegram message** per region and day ("West Jutland, Thursday: good", with each spot's window underneath) when something appears, gets confirmed, gets better or worse, moves, or is called off. If nothing new has happened, it says nothing.
 - **Builds a phone page** with the full picture: a timeline of windows, the reason behind each score, and a 10-day outlook. I keep it pinned to my home screen.
 - **Sends a weekly summary** every Sunday, even when the week looks flat.
 
@@ -53,11 +53,13 @@ Spots, scoring thresholds and window rules all live in plain YAML files in `conf
 
 **Only alert on real news.** Forecasts wobble every run. If the tool compared each run with the last one, I'd get a message every 12 hours about nothing. Instead it compares each window with **what it last told me**. A window that drifts a bit, or vanishes for one run and comes back the same, sends nothing.
 
+**Alert on decisions, not on spots.** The real question is "do I drive to West Jutland on Thursday?", not "is Vorupør good from 11 to 14?". So the tool tracks windows per spot, but decides what to send per *region and day*: two spots getting the same swell is one line, not two cards. Heads-ups from the global model are only ever a silent one-liner per region. If they change grade or drop out, I'm not told, because about two thirds of them never get confirmed anyway. Only a confirmed day being called off sends a cancellation. Replaying a month of real runs, this cut the typical message from 38 lines to 8 and the number of runs that buzz my phone from 57 to 32.
+
 **Don't let one bad hour split a session.** A window opens when the score reaches "good" (6), but only closes when it drops below 5. Short dips of an hour are bridged. Without this, a score bouncing around 6.0 would turn one session into three alerts.
 
 **Fail loudly.** A broken pipeline looks exactly like "no surf this week". So if any step fails I get a "run FAILED" message with a link to the log, and the phone page shows a warning if the data is more than 14 hours old.
 
-**Tests run before anything is sent.** There are 7 test files (about 110 checks) covering scoring, window detection, tracking and message formatting. If one fails, the run stops before it can send a wrong alert.
+**Tests run before anything is sent.** There are 8 test files (about 130 checks) covering scoring, window detection, tracking and message formatting. If one fails, the run stops before it can send a wrong alert.
 
 **Check that the data is real.** Open-Meteo's automatic model choice sometimes returns a successful response where every wave value is empty, for some coastal points ([issue #1364](https://github.com/open-meteo/open-meteo/issues/1364)). So I ask for specific models by name and check that real numbers came back before using them.
 

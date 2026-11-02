@@ -21,6 +21,11 @@
 #
 # Events: NEW, CONFIRMED, UPGRADED, DOWNGRADED, CHANGED (timing), CANCELLED.
 # Timing changes only count once confirmed: GFS-range timing is too noisy.
+# CANCELLED only fires for windows I was told about as confirmed; a
+# heads-up that drops out is cancelled silently.
+#
+# These are spot-level events. What actually gets pushed is decided one
+# level up, per region and day, in track_regions.R.
 #
 # State file: state/windows.csv. Datetimes stored as ISO-8601 UTC strings
 # ("2026-10-11T05:00:00Z") and parsed back explicitly, never by guess.
@@ -250,7 +255,12 @@ track_windows <- function(windows, state, blocks, cfg, hold_level, now = Sys.tim
         row$status <- "faded"
       } else {
         row$status <- "cancelled"
-        if (!is.na(row$notified_at)) add_event("CANCELLED", row)
+        # Only a CONFIRMED window I was told about is worth a cancellation
+        # message. A GFS heads-up dropping out is normal noise (about two
+        # thirds never confirm): it just disappears from the page.
+        if (!is.na(row$notified_at) && identical(row$notified_stage, "confirmed")) {
+          add_event("CANCELLED", row)
+        }
       }
     }
     state[j, ] <- row

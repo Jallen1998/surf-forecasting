@@ -26,6 +26,7 @@ dry_run <- "--dry-run" %in% args
 
 source("R/detect_windows.R")
 source("R/track_windows.R")
+source("R/track_regions.R")
 source("R/notify.R")
 source("R/summarise_region.R")
 source("R/render_page.R")
@@ -49,21 +50,32 @@ tr <- track_windows(
   now = now
 )
 
-cat("\n---- Alerts this run ----\n")
+cat("\n---- Spot-level changes this run ----\n")
 print_events(tr$events)
 
 spots <- load_spots()
 notify_cfg <- load_notify_cfg()
 consider_min <- yaml::read_yaml("config/windows.yaml")$consider$min_score %||% 5
-summaries <- summarise_regions(
-  res$blocks,
-  spots,
-  tr$events,
-  tz = notify_cfg$display_tz
-)
+
+# What gets pushed is decided per region and day (R/track_regions.R),
+# against state/regions_told.csv. First run without that file: seed it from
+# the spot-level "told" columns so nothing already sent is re-announced.
+told <- read_told()
+if (is.null(told)) told <- seed_told(state, spots, notify_cfg$display_tz)
+rg <- track_regions(tr$state, told, spots, trk_cfg, now = now, tz = notify_cfg$display_tz)
+cat("\n---- Region-day alerts this run ----\n")
+if (is.null(rg$events)) {
+  cat("Nothing to push.\n")
+} else {
+  for (k in seq_len(nrow(rg$events))) {
+    e <- rg$events[k, ]
+    cat(sprintf("%-10s %-16s %s  %s %s\n", e$event_type, e$region,
+                format(e$day, "%a %d %b"), e$stage, e$category))
+  }
+}
 
 if (dry_run) {
-  msgs <- format_alert(tr$events, spots, notify_cfg, now, summaries)
+  msgs <- format_alert(rg$events, spots, notify_cfg, now)
   if (length(msgs)) {
     cat("\n---- Telegram message (dry run, not sent) ----\n")
     cat(msgs, sep = "\n\n[next message]\n\n")
@@ -90,18 +102,12 @@ if (dry_run) {
       "\n"
     )
   }
-  cat("\nDry run: nothing sent, state/windows.csv not changed.\n")
+  cat("\nDry run: nothing sent, state/ not changed.\n")
 } else {
-  # mark_notified() only on confirmed delivery, so a failed send is
-  # retried next run instead of being silently marked as told.
-  delivered <- notify_events(
-    tr$events,
-    spots,
-    notify_cfg,
-    now,
-    summaries = summaries
-  )
-  if (nrow(tr$events) > 0) {
+  # mark_notified() / write_told() only on confirmed delivery, so a failed
+  # send is retried next run instead of being silently marked as told.
+  delivered <- notify_events(rg$events, spots, notify_cfg, now)
+  if (!is.null(rg$events)) {
     cat(
       if (delivered) {
         "Telegram: delivered.\n"
@@ -116,6 +122,7 @@ if (dry_run) {
     tr$state
   }
   write_state(new_state)
+  if (delivered) write_told(rg$told)
   render_page(
     res$blocks,
     new_state,
