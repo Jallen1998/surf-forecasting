@@ -33,7 +33,9 @@ wind_modifier:
   groundswell_block:          # period >= tier's "good" cutoff
     offshore: 1.2
     cross: 0.8
-    onshore_light: 0.5
+    onshore_light: 0.85       # was 0.5: halving made a 10 s swell score far below
+                              # the same sea at 9.9 s (x0.9 below). Light onshore
+                              # on real swell is still fun (my sessions, Oct 2026).
     onshore_strong: 0.15
     offshore_strong: 0.9      # >= tier onshore_strong_ms: hard to catch, guesses
     cross_strong: 0.5
@@ -44,6 +46,10 @@ wind_modifier:
     onshore_strong: 0.6
     offshore_strong: 0.9
     cross_strong: 0.7
+
+# Light onshore can be fun with good swell, but it's never Epic: cap the
+# score just under the Epic cutoff whenever the wind is onshore_light.
+onshore_light_max_score: 8.4
 
 category_cutoffs:              # composite score (swell_quality x wind_modifier) -> category
   flat: 0

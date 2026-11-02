@@ -99,4 +99,17 @@ stopifnot(b$exposure == 1, b$score >= 6)  # 7.875 * 1.1 offshore = 8.7
 stopifnot(blk(2.0, 8.95, wave_dir = 230, tier = "A_groundswell", facing = 0, arc = c(150, 230),
               wdir = 200, wspd = 6, full_deg = 80, zero_deg = 120)$exposure == 0)
 
+# 12. Light onshore on real swell (Vorupør 29 Oct 2026: forecast Marginal 4.5,
+#     actually a really fun session). No cliff at the groundswell period
+#     cutoff: a 10 s swell must not score below the same sea at 9.9 s.
+v <- function(p, wspd = 6, wdir = 290, h = 2.2) blk(h, p, wave_dir = 280, tier = "A_groundswell",
+                                                 facing = 280, arc = c(80, 160), wdir = wdir, wspd = wspd)
+stopifnot(v(9.9)$block_type == "windsea_block", v(10)$block_type == "groundswell_block")
+stopifnot(v(10)$wind_category == "onshore_light", v(10)$score >= v(9.9)$score, v(10)$category == "Good")
+# ...but light onshore is never Epic, however big and clean the swell
+big <- v(14, h = 3.5)
+stopifnot(big$wind_category == "onshore_light", big$score <= 8.4, big$category == "Good")
+# Strong onshore is still heavily punished
+stopifnot(v(10, wspd = 12)$wind_category == "onshore_strong", v(10, wspd = 12)$category != "Good")
+
 cat("All score_block tests passed.\n")

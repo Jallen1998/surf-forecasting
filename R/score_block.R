@@ -255,6 +255,12 @@ score_block <- function(row, history, idx, tiers_cfg) {
     if (!fetch_ok) score <- score * 0.5 # cap, don't zero
   }
 
+  # Light onshore with good swell can be fun, but never Epic.
+  cap <- tiers_cfg$onshore_light_max_score
+  if (!is.null(cap) && !is.na(score) && identical(wcat, "onshore_light")) {
+    score <- min(score, cap)
+  }
+
   cutoffs <- tiers_cfg$category_cutoffs
   category <- if (is.na(score)) {
     NA_character_
