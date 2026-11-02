@@ -19,7 +19,7 @@ NOW <- as.POSIXct("2026-11-02 06:00", tz = "UTC")
 THU <- as.POSIXct("2026-11-05 00:00", tz = "UTC")
 h <- function(x, day = THU) day + x * 3600
 
-# A state row (only the columns region_days() needs).
+# A state row (only the columns rollup_region_days() needs).
 w <- function(spot, s, e, stage = "heads_up", cat = "Good", score = 7, status = "active", day = THU) {
   tibble::tibble(window_id = paste(spot, s), spot = spot, status = status, stage = stage,
                  start = h(s, day), end = h(e, day), peak_score = score, peak_category = cat)

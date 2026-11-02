@@ -65,7 +65,7 @@ write_told <- function(told, path = "state/regions_told.csv") {
 
 # Live spot windows -> one row per region x local day, plus the spot detail
 # for the message.
-region_days <- function(state, spots, tz = "Europe/Copenhagen") {
+rollup_region_days <- function(state, spots, tz = "Europe/Copenhagen") {
   region_of <- setNames(spots$region, spots$spot)
   live <- state[state$status %in% c("active", "faded"), ]
   if (nrow(live) == 0) {
@@ -106,7 +106,7 @@ seed_told <- function(state, spots, tz = "Europe/Copenhagen") {
   told_rows$peak_category <- told_rows$notified_peak_category
   told_rows$start <- told_rows$notified_start
   told_rows$end <- told_rows$notified_end
-  rd <- region_days(told_rows, spots, tz)
+  rd <- rollup_region_days(told_rows, spots, tz)
   tibble::tibble(region = rd$region, day = rd$day, stage = rd$stage, category = rd$category,
                  span_start = rd$span_start, status = "live",
                  told_at = max(told_rows$notified_at))
@@ -120,7 +120,7 @@ seed_told <- function(state, spots, tz = "Europe/Copenhagen") {
 track_regions <- function(state, told, spots, cfg, now = Sys.time(), tz = "Europe/Copenhagen") {
   today <- as.Date(now, tz = tz)
   told <- told[told$day >= today, ] # finished days drop out
-  cur <- region_days(state, spots, tz)
+  cur <- rollup_region_days(state, spots, tz)
   cur <- cur[cur$day >= today, ]
 
   key <- function(r, d) paste(r, format(d, "%Y-%m-%d"))

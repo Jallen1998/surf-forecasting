@@ -59,7 +59,7 @@ Spots, scoring thresholds and window rules all live in plain YAML files in `conf
 
 **Fail loudly.** A broken pipeline looks exactly like "no surf this week". So if any step fails I get a "run FAILED" message with a link to the log, and the phone page shows a warning if the data is more than 14 hours old.
 
-**Tests run before anything is sent.** There are 8 test files (about 130 checks) covering scoring, window detection, tracking and message formatting. If one fails, the run stops before it can send a wrong alert.
+**Tests run before anything is sent.** There are 9 test files (about 135 checks) covering scoring, window detection, tracking and message formatting. If one fails, the run stops before it can send a wrong alert.
 
 **Check that the data is real.** Open-Meteo's automatic model choice sometimes returns a successful response where every wave value is empty, for some coastal points ([issue #1364](https://github.com/open-meteo/open-meteo/issues/1364)). So I ask for specific models by name and check that real numbers came back before using them.
 
