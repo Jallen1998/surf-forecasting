@@ -21,6 +21,13 @@ tiers:
     onshore_strong_ms: 8
     fetch_min_speed_ms: 6
     windsea_fetch_build_hrs: 8
+    # Wind-swell spots: onshore/cross wind is usually what makes the waves,
+    # and a messy session beats none (Gilleleje, Nov 2026). Overrides the
+    # global windsea_block values below. Clean-up (offshore 1.1) still wins.
+    wind_modifier:
+      windsea_block: { onshore_light: 0.95, onshore_strong: 0.85, cross_strong: 0.95 }
+    blown_out_ms: 16          # strong onshore/cross fades to blown_out_modifier here
+    blown_out_modifier: 0.4
 
   C_windswell:                # Piren, Smygehuk
     period_sec: { poor: 3, marginal: 4, good: 6 }
@@ -28,18 +35,24 @@ tiers:
     onshore_strong_ms: 7
     fetch_min_speed_ms: 5
     windsea_fetch_build_hrs: 10
+    wind_modifier:
+      windsea_block: { onshore_light: 0.95, onshore_strong: 0.85, cross_strong: 0.95 }
+    blown_out_ms: 15
+    blown_out_modifier: 0.4
 
 wind_modifier:
   groundswell_block:          # period >= tier's "good" cutoff
     offshore: 1.2
     cross: 0.8
-    onshore_light: 0.85       # was 0.5: halving made a 10 s swell score far below
-                              # the same sea at 9.9 s (x0.9 below). Light onshore
-                              # on real swell is still fun (my sessions, Oct 2026).
+    onshore_light: 0.9        # was 0.5, then 0.85: anything below windsea's 0.9
+                              # makes a 10 s swell score below the same sea at
+                              # 9.9 s. Light onshore on real swell is still fun
+                              # (my sessions, Oct 2026).
     onshore_strong: 0.15
     offshore_strong: 0.9      # >= tier onshore_strong_ms: hard to catch, guesses
     cross_strong: 0.5
-  windsea_block:               # period below tier's "good" cutoff — the normal case
+  windsea_block:               # period below tier's "good" cutoff — the normal case.
+                               # Tier B/C override some of these (see tiers above).
     offshore: 1.1
     cross: 1.0
     onshore_light: 0.9
@@ -50,6 +63,9 @@ wind_modifier:
 # Light onshore can be fun with good swell, but it's never Epic: cap the
 # score just under the Epic cutoff whenever the wind is onshore_light.
 onshore_light_max_score: 8.4
+# Strong onshore or cross wind: Good at best, never top of the Good band,
+# so the offshore clean-up after a blow always ranks above the blow itself.
+strong_wind_max_score: 7.5
 
 category_cutoffs:              # composite score (swell_quality x wind_modifier) -> category
   flat: 0

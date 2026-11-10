@@ -36,16 +36,36 @@ load_tiers <- function(path = "config/tiers.yaml") read_yaml(path)
 PERIOD_WEIGHT <- 0.65
 HEIGHT_WEIGHT <- 0.35
 
+# Piecewise-linear version of the category lookup. The step version gave
+# cliffs at every cutoff: 2.0 m @ 5.99 s scored 5.9 at Gilleleje but
+# 7.9 @ 6.0 s (Nov 2026), and 9.9 s vs 10 s did the same in West Jutland.
+# Knots sit at the MIDDLE of each band, holding that band's category
+# score, so a value in the middle of a band scores exactly what the step
+# function gave it and there is no systematic up/down shift:
+#   poor cutoff -> 2, mid(poor, marginal) -> 4, mid(marginal, good) -> 7,
+#   good + half the good-marginal gap -> 9.5 (flat above that).
+# Below the poor cutoff the value stays 2 (height has its own fade below).
+.interp_score <- function(value, cutoffs) {
+  if (is.na(value)) {
+    return(NA_real_)
+  }
+  x <- c(
+    cutoffs$poor,
+    (cutoffs$poor + cutoffs$marginal) / 2,
+    (cutoffs$marginal + cutoffs$good) / 2,
+    cutoffs$good + (cutoffs$good - cutoffs$marginal) / 2
+  )
+  y <- unname(.CATEGORY_SCORE[c("poor", "marginal", "good", "epic")])
+  stats::approx(x, y, xout = value, rule = 2)$y
+}
+
 swell_quality <- function(height_m, period_sec, tier_cfg) {
-  period_cat <- .classify(period_sec, tier_cfg$period_sec)
-  height_cat <- .classify(height_m, tier_cfg$height_m)
-  if (is.na(period_cat) || is.na(height_cat)) {
+  if (is.na(period_sec) || is.na(height_m)) {
     return(NA_real_)
   }
 
-  sq <- PERIOD_WEIGHT *
-    .CATEGORY_SCORE[[period_cat]] +
-    HEIGHT_WEIGHT * .CATEGORY_SCORE[[height_cat]]
+  sq <- PERIOD_WEIGHT * .interp_score(period_sec, tier_cfg$period_sec) +
+    HEIGHT_WEIGHT * .interp_score(height_m, tier_cfg$height_m)
 
   # Below the "poor" height cutoff, fade swell quality linearly to zero.
   # Without this, height could never pull the score below its "poor"
@@ -124,6 +144,36 @@ wind_category <- function(
     )
   }
   if (strong) "cross_strong" else "cross"
+}
+
+# ---- Wind modifier ------------------------------------------------------------
+# Global tiers.yaml wind_modifier, overridden per tier where a tier has its
+# own wind_modifier block (wind-swell spots: onshore wind is usually the
+# only way they get waves, so it is penalised less than in West Jutland).
+# If the tier sets blown_out_ms / blown_out_modifier, onshore_strong and
+# cross_strong fade linearly from their value at onshore_strong_ms down to
+# blown_out_modifier at blown_out_ms: 9 m/s and a gale are not the same.
+wind_modifier_value <- function(wcat, wind_speed_ms, block_type, tier_cfg, tiers_cfg) {
+  if (is.na(wcat)) {
+    return(NA_real_)
+  }
+  mods <- tiers_cfg$wind_modifier[[block_type]]
+  over <- tier_cfg$wind_modifier[[block_type]]
+  if (!is.null(over)) mods[names(over)] <- over
+  wmod <- mods[[wcat]]
+  if (is.null(wmod)) {
+    return(NA_real_)
+  }
+
+  blown_ms <- tier_cfg$blown_out_ms
+  blown_mod <- tier_cfg$blown_out_modifier
+  if (wcat %in% c("onshore_strong", "cross_strong") &&
+      !is.null(blown_ms) && !is.null(blown_mod) && !is.na(wind_speed_ms)) {
+    lo <- tier_cfg$onshore_strong_ms
+    frac <- min(1, max(0, (wind_speed_ms - lo) / (blown_ms - lo)))
+    wmod <- wmod + frac * (blown_mod - wmod)
+  }
+  wmod
 }
 
 # ---- Fetch gate for windsea blocks -----------------------------------------
@@ -227,10 +277,7 @@ score_block <- function(row, history, idx, tiers_cfg) {
     tier_cfg$onshore_strong_ms
   )
 
-  wmod <- if (is.na(wcat)) NULL else tiers_cfg$wind_modifier[[block_type]][[wcat]]
-  if (is.null(wmod)) {
-    wmod <- NA_real_
-  }
+  wmod <- wind_modifier_value(wcat, row$wind_speed_10m, block_type, tier_cfg, tiers_cfg)
 
   score <- sq * exposure * wmod
 
@@ -255,10 +302,16 @@ score_block <- function(row, history, idx, tiers_cfg) {
     if (!fetch_ok) score <- score * 0.5 # cap, don't zero
   }
 
-  # Light onshore with good swell can be fun, but never Epic.
+  # Light onshore with good swell can be fun, but never Epic. Strong
+  # onshore/cross is capped lower still, so a clean-up session in
+  # offshore wind always outranks the blow that built the swell.
   cap <- tiers_cfg$onshore_light_max_score
   if (!is.null(cap) && !is.na(score) && identical(wcat, "onshore_light")) {
     score <- min(score, cap)
+  }
+  cap_strong <- tiers_cfg$strong_wind_max_score
+  if (!is.null(cap_strong) && !is.na(score) && wcat %in% c("onshore_strong", "cross_strong")) {
+    score <- min(score, cap_strong)
   }
 
   cutoffs <- tiers_cfg$category_cutoffs
