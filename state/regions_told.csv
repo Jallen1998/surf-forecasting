@@ -1,6 +1,4 @@
 "region","day","stage","category","span_start","status","told_at"
-"Varberg","2026-11-14","confirmed","Good","2026-11-14T11:00:00Z","live","2026-11-12T00:38:27Z"
-"West Jutland","2026-11-14","confirmed","Good","2026-11-14T11:00:00Z","live","2026-11-12T00:38:27Z"
 "South Sweden","2026-11-15","confirmed","Good","2026-11-15T06:00:00Z","live","2026-11-12T23:35:17Z"
 "West Jutland","2026-11-15","confirmed","Epic","2026-11-15T06:00:00Z","live","2026-11-12T23:35:17Z"
 "Åsa","2026-11-16","heads_up","Good","2026-11-16T06:00:00Z","live","2026-11-11T13:11:44Z"
