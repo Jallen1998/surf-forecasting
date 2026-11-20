@@ -1,8 +1,4 @@
 "region","day","stage","category","span_start","status","told_at"
-"Åsa","2026-11-19","heads_up","Good","2026-11-19T13:00:00Z","live","2026-11-10T23:17:01Z"
-"East Skåne","2026-11-19","heads_up","Good","2026-11-19T06:00:00Z","live","2026-11-14T13:27:40Z"
-"South Sweden","2026-11-19","heads_up","Good","2026-11-19T11:00:00Z","live","2026-11-12T15:08:05Z"
-"West Jutland","2026-11-19","heads_up","Good","2026-11-19T13:00:00Z","live","2026-11-10T01:29:52Z"
 "North Zealand","2026-11-20","heads_up","Good","2026-11-20T08:00:00Z","live","2026-11-12T15:08:05Z"
 "West Jutland","2026-11-20","heads_up","Good","2026-11-20T07:00:00Z","live","2026-11-11T13:11:44Z"
 "Mølle peninsula","2026-11-21","heads_up","Good","2026-11-21T11:00:00Z","live","2026-11-17T15:56:22Z"
@@ -13,3 +9,4 @@
 "East Skåne","2026-11-27","heads_up","Good","2026-11-27T13:00:00Z","live","2026-11-19T00:19:52Z"
 "West Jutland","2026-11-27","heads_up","Good","2026-11-27T12:00:00Z","live","2026-11-19T15:41:54Z"
 "East Skåne","2026-11-28","heads_up","Epic","2026-11-28T06:00:00Z","live","2026-11-19T00:19:52Z"
+"West Jutland","2026-11-29","heads_up","Good","2026-11-29T07:00:00Z","live","2026-11-20T00:35:42Z"
